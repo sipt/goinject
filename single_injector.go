@@ -1,29 +1,31 @@
 package goinject
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"reflect"
 	"unsafe"
 )
 
 var _ Injector = new(singleInjector)
+
 func NewSingleInjector() Injector {
 	return &singleInjector{
-		objs:make(map[interface{}]reflect.Value),
+		objs: make(map[interface{}]reflect.Value),
 	}
 }
-type singleInjector struct{
+
+type singleInjector struct {
 	objs map[interface{}]reflect.Value
 }
 
 // Replace 替换 NewFunc
-func (s *singleInjector) Replace(key interface{}, value interface{}){
+func (s *singleInjector) Replace(key interface{}, value interface{}) {
 	s.objs[key] = reflect.ValueOf(value)
 }
 
 // Register 注册 NewFunc
-func (s *singleInjector)Register(key interface{}, value interface{}) error {
+func (s *singleInjector) Register(key interface{}, value interface{}) error {
 	_, ok := s.objs[key]
 	if ok {
 		return errors.New(fmt.Sprintf("key duplicate: %v", key))
@@ -33,7 +35,7 @@ func (s *singleInjector)Register(key interface{}, value interface{}) error {
 }
 
 // Get 获取注册对象
-func (s *singleInjector)Get(key string) (interface{}, error) {
+func (s *singleInjector) Get(key string) (interface{}, error) {
 	v, ok := s.objs[key]
 	if ok {
 		return v.Interface(), nil
@@ -42,21 +44,21 @@ func (s *singleInjector)Get(key string) (interface{}, error) {
 }
 
 // Remove 删除注册对象
-func (s *singleInjector)Remove(key string) {
+func (s *singleInjector) Remove(key string) {
 	delete(s.objs, key)
 }
 
-func (s *singleInjector)Clear(){
+func (s *singleInjector) Clear() {
 	s.objs = make(map[interface{}]reflect.Value)
 }
 
-func (s *singleInjector)InjectAll() {
+func (s *singleInjector) InjectAll() {
 	for _, v := range s.objs {
 		s.Inject(v)
 	}
 }
 
-func (s *singleInjector)Inject(v interface{}) {
+func (s *singleInjector) Inject(v interface{}) {
 	var value reflect.Value
 	var ok bool
 	if value, ok = v.(reflect.Value); !ok {
@@ -78,8 +80,19 @@ loop:
 	if value.Kind() != reflect.Struct {
 		return
 	}
+	s.injectValue(value)
+}
+
+func (s *singleInjector) injectValue(value reflect.Value) {
 	for i := 0; i < value.NumField(); i++ {
-		name := value.Type().Field(i).Tag.Get(InjectorTag)
+		fieldType := value.Type().Field(i)
+		name := fieldType.Tag.Get(InjectorTag)
+		if len(name) == 0 {
+			if fieldType.Anonymous {
+				s.injectValue(value.Field(i))
+			}
+			continue
+		}
 		temp, ok := s.objs[name]
 		if ok {
 			field := value.Field(i)
