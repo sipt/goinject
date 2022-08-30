@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -53,7 +54,10 @@ func (s *singleInjector) Clear() {
 }
 
 func (s *singleInjector) InjectAll() {
-	for _, v := range s.objs {
+	for k, v := range s.objs {
+		if key, ok := k.(string); ok && strings.HasPrefix(key, "@") {
+			continue
+		}
 		s.Inject(v)
 	}
 }
